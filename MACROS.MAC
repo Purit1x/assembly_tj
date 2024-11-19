@@ -1,0 +1,33 @@
+; 屏幕输出一个字符
+put_char macro char
+	push cx
+	mov cl, char
+    mov ch, 04h  ; 前景色红色
+    call show_char
+    pop cx
+endm
+;屏幕换行
+next_line macro 
+    push ax
+    push bx
+
+    mov ax, screen_pos
+    mov bl, 80
+    div bl
+    inc al
+    mul bl
+    mov screen_pos, ax
+
+    pop bx
+    pop ax
+endm
+;输出num个空格字符
+put_spaces macro num
+	local ls
+	push cx
+	mov cx,num
+ls:
+	put_char ' '
+	loop ls
+	pop cx
+endm
