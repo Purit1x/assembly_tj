@@ -2,31 +2,103 @@
 
 ## 一、Windows系统程序内存空间分布
 
-| 内存空间 | 描述                                                         |
-| -------- | ------------------------------------------------------------ |
-| 栈区     | 存放函数的局部变量和函数调用时的参数。 从高地址向低地址扩展。 内存分配和释放是自动的，遵循 LIFO 原则。 |
-| 堆区     | 存放动态分配的内存； 从低地址向高地址扩展； 大小动态增长，由程序员控制分配和释放。 |
-| 数据段   | 存放全局变量和静态变量；通常紧接在代码段之后；可以被修改，但大小在程序启动时确定。 |
-| 代码段   | 存放程序的机器指令；通常位于内存的最低地址处；只读，防止程序修改自身代码。 |
+​	编写如下程序：
 
-​	从上至下为高地址到低地址。
+```c
+#include <windows.h>
+#include <stdio.h>
+
+int global_var = 42; // 全局变量
+
+void print_memory_layout() {
+    // 获取模块基地址（代码部分的起始地址）
+    HMODULE hModule = GetModuleHandle(NULL);
+    if (hModule == NULL) {
+        printf("Failed to get module handle.\n");
+        return;
+    }
+    printf("Code section start address: %p\n", hModule);
+
+    // 获取全局变量的地址
+    printf("Global variable address: %p\n", &global_var);
+
+    // 获取堆区的起始地址
+    void* heap_start = HeapAlloc(GetProcessHeap(), 0, 1);
+    if (heap_start == NULL) {
+        printf("Failed to allocate memory on heap.\n");
+        return;
+    }
+    printf("Heap start address: %p\n", heap_start);
+    HeapFree(GetProcessHeap(), 0, heap_start);
+
+    // 获取栈区的起始地址
+    int stack_var;
+    printf("Stack start address (stack bottom): %p\n", (void*)&stack_var);
+}
+
+int main() {
+    print_memory_layout();
+    return 0;
+}
+```
+
+​	运行得到以下输出结果：
+
+```
+Code section start address: 00007ff78caf0000
+Global variable address: 00007ff78caf8000
+Heap start address: 000001c3193b6a70
+Stack start address (stack bottom): 00000008adfffe1c
+```
+
+​	可以看到全局变量部分，即数据段与代码段是紧邻的，而堆区和栈区是分开存储的。
+
+​	而如果使用针对x86平台的编译器，得到以下输出结果：
+
+```
+Code section start address: 00750000
+Global variable address: 0076A000
+Heap start address: 0137ACE0
+Stack start address (stack bottom): 010FF9F4
+```
+
+​	可以看到，数据段与代码段仍是紧邻的，位于低地址区域，而堆区和栈区位于高地址区域。
 
 ## 二、系统栈空间
 
 **默认栈空间大小**
 
-1. **32位应用程序**：
-    - **默认栈大小**：1 MB
-    - **最大栈大小**：通常限制在 2 GB 以内，但这取决于可用的虚拟地址空间。
-2. **64位应用程序**：
-    - **默认栈大小**：1 MB
-    - **最大栈大小**：理论上可以达到 8 TB，但实际上受限于系统的虚拟地址空间和物理内存。
+​	使用如下程序：
+
+```c++
+#include <windows.h>
+#include <cstdio>
+
+int main(int argc, char* argv[])
+{
+	ULONG_PTR lowAddr, highAddr;
+	GetCurrentThreadStackLimits(&lowAddr, &highAddr);
+	size_t stackSizeByte = highAddr - lowAddr;
+	float stackSizeMB = static_cast<float>(stackSizeByte) / 1024 / 1024;
+	printf("Stack size: %.02f MB Stack bottom: %p, Stack top %p", stackSizeMB, reinterpret_cast<void*>(lowAddr), reinterpret_cast<void*>(highAddr));
+	return 0;
+}
+```
+
+​	得到输出结果为：
+
+​	`Stack size: 1.00 MB Stack bottom: 0000007FED400000, Stack top 0000007FED500000`
+
+​	以x86为解决方案平台得到的栈空间大小相同。
 
 **修改**
 
 ​	在Visual Studio中，可以通过链接器选项来查看或调整栈大小，例如：
 
 ​	项目->属性->Linker->System: 查看并修改Stack Reserve Size和Stack Commit Size。
+
+​	将“堆栈保留大小”修改为2097152（bytes）后，得到输出结果如下：
+​	`Stack size: 2.00 MB Stack bottom: 000000D709E00000, Stack top 000000D70A000000`
 
 ## 三、课堂作业
 
